@@ -1,0 +1,18 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Datos generados por la app
+resenas.json
+
+# Secretos
+.env
+.env.*
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
