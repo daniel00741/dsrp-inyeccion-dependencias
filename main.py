@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 
 from schemas import ResenaIn, ResultadoOut
+from service import analizar_sentimiento
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,28 +22,10 @@ def health():
 
 @app.post("/analizar", response_model=ResultadoOut)
 def analizar(resena: ResenaIn) -> ResultadoOut:
-    # --- validar ---
-    # (ya no hace falta: Pydantic valida ANTES de que esta función se ejecute)
-
     logger.info(f"Reseña de {resena.cliente}: {resena.texto}")
 
-    # --- analizar ---
-    texto = resena.texto.lower()
-    positivas = 0
-    negativas = 0
-    for p in ["excelente", "bueno", "buena", "me encanta", "recomiendo", "rápido", "perfecto"]:
-        if p in texto:
-            positivas = positivas + 1
-    for p in ["malo", "mala", "pésimo", "horrible", "no funciona", "lento", "roto", "devolver"]:
-        if p in texto:
-            negativas = negativas + 1
-
-    if positivas > negativas:
-        sentimiento = "positivo"
-    elif negativas > positivas:
-        sentimiento = "negativo"
-    else:
-        sentimiento = "neutro"
+    # --- analizar (ahora lo decide service.py) ---
+    analisis = analizar_sentimiento(resena.texto)
 
     # --- guardar ---
     if os.path.exists(ARCHIVO):
@@ -57,7 +40,7 @@ def analizar(resena: ResenaIn) -> ResultadoOut:
         "producto": resena.producto,
         "texto": resena.texto,
         "estrellas": resena.estrellas,
-        "sentimiento": sentimiento,
+        "sentimiento": analisis.sentimiento,
     }
     resenas.append(registro)
 
@@ -67,9 +50,9 @@ def analizar(resena: ResenaIn) -> ResultadoOut:
     # --- responder ---
     return ResultadoOut(
         id=registro["id"],
-        sentimiento=sentimiento,
-        positivas=positivas,
-        negativas=negativas,
+        sentimiento=analisis.sentimiento,
+        positivas=analisis.positivas,
+        negativas=analisis.negativas,
     )
 
 
