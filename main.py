@@ -2,10 +2,10 @@ import json
 import logging
 import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from schemas import ResenaIn, ResultadoOut
-from service import analizar_sentimiento
+from service import Analizador, obtener_analizador
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,11 +21,14 @@ def health():
 
 
 @app.post("/analizar", response_model=ResultadoOut)
-def analizar(resena: ResenaIn) -> ResultadoOut:
+def analizar(
+    resena: ResenaIn,
+    analizador: Analizador = Depends(obtener_analizador),
+) -> ResultadoOut:
     logger.info(f"Reseña de {resena.cliente}: {resena.texto}")
 
-    # --- analizar (ahora lo decide service.py) ---
-    analisis = analizar_sentimiento(resena.texto)
+    # --- analizar (con el analizador que nos INYECTARON) ---
+    analisis = analizador.analizar(resena.texto)
 
     # --- guardar ---
     if os.path.exists(ARCHIVO):
