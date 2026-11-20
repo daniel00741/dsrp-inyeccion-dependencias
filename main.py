@@ -4,10 +4,12 @@ import os
 
 from fastapi import FastAPI
 
+from schemas import ResenaIn, ResultadoOut
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Analizador de Reseñas", version="0.0.1")
+app = FastAPI(title="Analizador de Reseñas", version="0.0.2")
 
 ARCHIVO = "resenas.json"
 
@@ -17,21 +19,15 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/analizar")
-def analizar(data: dict):
+@app.post("/analizar", response_model=ResultadoOut)
+def analizar(resena: ResenaIn) -> ResultadoOut:
     # --- validar ---
-    if "cliente" not in data or "producto" not in data or "texto" not in data:
-        return {"error": "faltan campos"}
-    if len(data["texto"]) < 5:
-        return {"error": "el texto es muy corto"}
-    if "estrellas" in data:
-        if data["estrellas"] < 1 or data["estrellas"] > 5:
-            return {"error": "estrellas debe estar entre 1 y 5"}
+    # (ya no hace falta: Pydantic valida ANTES de que esta función se ejecute)
 
-    logger.info(f"Reseña de {data['cliente']}: {data['texto']}")
+    logger.info(f"Reseña de {resena.cliente}: {resena.texto}")
 
     # --- analizar ---
-    texto = data["texto"].lower()
+    texto = resena.texto.lower()
     positivas = 0
     negativas = 0
     for p in ["excelente", "bueno", "buena", "me encanta", "recomiendo", "rápido", "perfecto"]:
@@ -55,26 +51,26 @@ def analizar(data: dict):
     else:
         resenas = []
 
-    resena = {
+    registro = {
         "id": len(resenas) + 1,
-        "cliente": data["cliente"],
-        "producto": data["producto"],
-        "texto": data["texto"],
-        "estrellas": data.get("estrellas"),
+        "cliente": resena.cliente,
+        "producto": resena.producto,
+        "texto": resena.texto,
+        "estrellas": resena.estrellas,
         "sentimiento": sentimiento,
     }
-    resenas.append(resena)
+    resenas.append(registro)
 
     with open(ARCHIVO, "w", encoding="utf-8") as f:
         json.dump(resenas, f, ensure_ascii=False, indent=2)
 
     # --- responder ---
-    return {
-        "id": resena["id"],
-        "sentimiento": sentimiento,
-        "positivas": positivas,
-        "negativas": negativas,
-    }
+    return ResultadoOut(
+        id=registro["id"],
+        sentimiento=sentimiento,
+        positivas=positivas,
+        negativas=negativas,
+    )
 
 
 @app.get("/resenas")

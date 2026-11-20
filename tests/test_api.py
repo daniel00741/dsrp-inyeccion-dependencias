@@ -66,22 +66,28 @@ def test_crea_el_archivo_en_disco(tmp_path) -> None:
     assert (tmp_path / "resenas.json").exists()
 
 
-# ---------- DEFECTOS ACTUALES (cambiarán en el paso 2) ----------
+# ---------- validación del contrato (corregido en el paso 2) ----------
 
-@pytest.mark.parametrize("cuerpo, error", [
-    ({"cliente": "Ana Torres", "texto": "Excelente"},                          "faltan campos"),
-    ({"cliente": "Ana Torres", "producto": "X200", "texto": "hola"},           "el texto es muy corto"),
+@pytest.mark.parametrize("cuerpo, campo, tipo_error", [
+    ({"cliente": "Ana Torres", "texto": "Excelente"},
+     "producto", "missing"),
+    ({"cliente": "Ana Torres", "producto": "X200", "texto": "hola"},
+     "texto", "string_too_short"),
     ({"cliente": "Ana Torres", "producto": "X200", "texto": "Muy bueno", "estrellas": 9},
-                                                                               "estrellas debe estar entre 1 y 5"),
+     "estrellas", "less_than_equal"),
+    ({"cliente": "Ana Torres", "producto": "X200", "texto": "Muy bueno", "estrellas": "cinco"},
+     "estrellas", "int_parsing"),
+    ({"cliente": "Ana Torres", "producto": "X200", "texto": 12345},
+     "texto", "string_type"),
 ])
-def test_DEFECTO_errores_responden_200(cuerpo: dict, error: str) -> None:
+def test_rechaza_datos_invalidos_con_422(cuerpo: dict, campo: str, tipo_error: str) -> None:
     respuesta = client.post("/analizar", json=cuerpo)
-    assert respuesta.status_code == 200          # ← está MAL, pero es lo que hace hoy
-    assert respuesta.json() == {"error": error}
+    assert respuesta.status_code == 422
+    error = respuesta.json()["detail"][0]
+    assert error["loc"] == ["body", campo]
+    assert error["type"] == tipo_error
 
 
-def test_DEFECTO_estrellas_como_texto_revienta_con_500() -> None:
-    respuesta = client.post("/analizar", json={
-        "cliente": "Ana Torres", "producto": "X200", "texto": "Muy bueno", "estrellas": "cinco",
-    })
-    assert respuesta.status_code == 500          # ← está MAL, pero es lo que hace hoy
+def test_dato_invalido_no_se_guarda() -> None:
+    client.post("/analizar", json={"cliente": "Ana Torres", "producto": "X200", "texto": "hola"})
+    assert client.get("/resenas").json() == []
